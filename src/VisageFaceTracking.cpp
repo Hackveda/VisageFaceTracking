@@ -109,7 +109,7 @@ protected:
 private:
 	char configFile[100];
 	int * track_stat;
-	VisageTracker * m_Tracker = 0;
+	VisageSDK::VisageTracker * m_Tracker = 0;
 };
 
 
@@ -118,13 +118,13 @@ VisageFaceTracking::VisageFaceTracking( const std::string& sName, boost::shared_
 	, m_outPort( "Output", *this )
 	, m_inPort( "ImageInput", *this, boost::bind(&VisageFaceTracking::newImage, this, _1))
 {
-	m_Tracker = new VisageTracker(configFile);
+	m_Tracker = new VisageSDK::VisageTracker(configFile);
 }
 
 void VisageFaceTracking::newImage(Measurement::ImageMeasurement image) {
 	//image->channels
 	
-	//track_stat = tracker->track(framePtr->width, framePtr->height, framePtr->imageData, &faceData, format, framePtr->origin);
+	//track_stat = m_Tracker->track(framePtr->width, framePtr->height, framePtr->imageData, &faceData, format, framePtr->origin);
 
 	Math::Quaternion headRot = Math::Quaternion(0, 0, 0, 1);
 	Math::Vector3d headPos = Math::Vector3d(0, 0, 0);
@@ -136,7 +136,7 @@ void VisageFaceTracking::newImage(Measurement::ImageMeasurement image) {
 
 VisageFaceTracking::~VisageFaceTracking()
 {
-	track_stat = tracker->track(0, 0, 0, 0);
+	track_stat = m_Tracker->track(0, 0, 0, 0);
 	delete m_Tracker;
 }
 

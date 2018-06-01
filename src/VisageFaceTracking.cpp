@@ -26,7 +26,7 @@
  * @file
  * 
  *
- * @author 
+ * @author Joe Bedard <bedard@in.tum.de>
  */
 
 
@@ -107,7 +107,7 @@ protected:
 	void newImage(Measurement::ImageMeasurement image);
 
 private:
-	char configFile[100];
+	char * configFile = "Face Detector.cfg";
 	int * track_stat;
 	VisageSDK::VisageTracker * m_Tracker = 0;
 };
@@ -118,16 +118,25 @@ VisageFaceTracking::VisageFaceTracking( const std::string& sName, boost::shared_
 	, m_outPort( "Output", *this )
 	, m_inPort( "ImageInput", *this, boost::bind(&VisageFaceTracking::newImage, this, _1))
 {
+	const DWORD len = 512;
+	char pBuf[len];
+	int bytes = GetModuleFileName(NULL, pBuf, len);
+	if (bytes != 0)
+		LOG4CPP_INFO(logger, pBuf);
+
 	m_Tracker = new VisageSDK::VisageTracker(configFile);
+
 }
 
 void VisageFaceTracking::newImage(Measurement::ImageMeasurement image) {
 	//image->channels
-	
-	//track_stat = m_Tracker->track(framePtr->width, framePtr->height, framePtr->imageData, &faceData, format, framePtr->origin);
 
-	Math::Quaternion headRot = Math::Quaternion(0, 0, 0, 1);
-	Math::Vector3d headPos = Math::Vector3d(0, 0, 0);
+	VisageSDK::FaceData faceData;
+	const char * data = (char *)image->Mat().data;
+	track_stat = m_Tracker->track(image->width(), image->height(), data, &faceData, VISAGE_FRAMEGRABBER_FMT_LUMINANCE, VISAGE_FRAMEGRABBER_ORIGIN_TL);
+
+	Math::Quaternion headRot = Math::Quaternion(faceData.faceRotation[0], faceData.faceRotation[1], faceData.faceRotation[2]);
+	Math::Vector3d headPos = Math::Vector3d(faceData.faceTranslation[0], faceData.faceTranslation[1], faceData.faceTranslation[2]);
 	Math::Pose headPose = Math::Pose(headRot, headPos);
 	Measurement::Pose meaHeadPose = Measurement::Pose(image.time(), headPose);
 	m_outPort.send(meaHeadPose);

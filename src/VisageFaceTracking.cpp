@@ -56,6 +56,9 @@
 
 #include <visageVision.h>
 
+#define _USE_MATH_DEFINES
+#include <math.h>
+
 // get a logger
 static log4cpp::Category& logger( log4cpp::Category::getInstance( "Ubitrack.Vision.VisageFaceTracking" ) );
 
@@ -107,9 +110,14 @@ protected:
 	void newImage(Measurement::ImageMeasurement image);
 
 private:
-	char * configFile = "Face Detector.cfg";
+   //char * configFile = "C:/Program Files/Visage Technologies/visageSDK/Samples/data/Head Tracker.cfg";
+   //char * configFile = "C:/libraries/JoeSRG/Head Tracker.cfg";
+   //char * configFile = "Head Tracker.cfg"; // current working directory
+   char * configFile = "Facial Features Tracker - High.cfg"; // current working directory
 	int * track_stat;
 	VisageSDK::VisageTracker * m_Tracker = 0;
+
+   int switchPixelFormat(Vision::Image::PixelFormat pf);
 };
 
 
@@ -122,24 +130,66 @@ VisageFaceTracking::VisageFaceTracking( const std::string& sName, boost::shared_
 	char pBuf[len];
 	int bytes = GetModuleFileName(NULL, pBuf, len);
 	if (bytes != 0)
-		LOG4CPP_INFO(logger, pBuf);
+		LOG4CPP_INFO(logger, "default-path:  " << pBuf);
 
 	m_Tracker = new VisageSDK::VisageTracker(configFile);
 
 }
 
-void VisageFaceTracking::newImage(Measurement::ImageMeasurement image) {
-	//image->channels
+int VisageFaceTracking::switchPixelFormat(Vision::Image::PixelFormat pf)
+{
+   using Ubitrack::Vision::Image;
+   switch (pf)
+   {
+   case Image::LUMINANCE:
+      return VISAGE_FRAMEGRABBER_FMT_LUMINANCE;
+   case Image::RGB:
+      return VISAGE_FRAMEGRABBER_FMT_RGB;
+   case Image::BGR:
+      return VISAGE_FRAMEGRABBER_FMT_BGR;
+   case Image::RGBA:
+      return VISAGE_FRAMEGRABBER_FMT_RGBA;
+   case Image::BGRA:
+      return VISAGE_FRAMEGRABBER_FMT_BGRA;
+   case Image::YUV422:
+   case Image::YUV411:
+   case Image::RAW:
+   case Image::DEPTH:
+   case Image::UNKNOWN_PIXELFORMAT:
+   default:
+      return -1;
+   }
+}
 
-	VisageSDK::FaceData faceData;
-	const char * data = (char *)image->Mat().data;
-	track_stat = m_Tracker->track(image->width(), image->height(), data, &faceData, VISAGE_FRAMEGRABBER_FMT_LUMINANCE, VISAGE_FRAMEGRABBER_ORIGIN_TL);
-
-	Math::Quaternion headRot = Math::Quaternion(faceData.faceRotation[0], faceData.faceRotation[1], faceData.faceRotation[2]);
-	Math::Vector3d headPos = Math::Vector3d(faceData.faceTranslation[0], faceData.faceTranslation[1], faceData.faceTranslation[2]);
-	Math::Pose headPose = Math::Pose(headRot, headPos);
-	Measurement::Pose meaHeadPose = Measurement::Pose(image.time(), headPose);
-	m_outPort.send(meaHeadPose);
+void VisageFaceTracking::newImage(Measurement::ImageMeasurement image) 
+{
+   int visageFormat = switchPixelFormat(image->pixelFormat());
+   if (visageFormat == -1)
+   {
+      LOG4CPP_ERROR(logger, "YUV422, YUV411, RAW, DEPTH, UNKNOWN_PIXELFORMAT are not supported by Visage");
+      LOG4CPP_ERROR(logger, "image->pixelFormat() == " << image->pixelFormat());
+   }
+   else
+   {
+      // the image from direct show is rotated 180 degrees
+      cv::Mat dest;
+      cv::rotate(image->Mat(), dest, cv::RotateFlags::ROTATE_180);
+	   const char * data = (char *)dest.data;
+   	VisageSDK::FaceData faceData;
+	   track_stat = m_Tracker->track(image->width(), image->height(), data, &faceData, visageFormat, VISAGE_FRAMEGRABBER_ORIGIN_TL);
+      if (faceData.trackingQuality >= 0.1f)
+      {
+         LOG4CPP_INFO(logger, "Head Rotation X Y Z:  " << faceData.faceRotation[0] << " " << faceData.faceRotation[1] << " " << faceData.faceRotation[2]);
+         LOG4CPP_INFO(logger, "Head Translation X Y Z: " << faceData.faceTranslation[0] << " " << faceData.faceTranslation[1] << " " << faceData.faceTranslation[2]);
+         LOG4CPP_INFO(logger, "Tracking Quality: " << faceData.trackingQuality);
+      }
+      Math::Quaternion headRot = Math::Quaternion(-faceData.faceRotation[0], -faceData.faceRotation[1], -faceData.faceRotation[2]);
+      Math::Vector3d headTrans = Math::Vector3d(faceData.faceTranslation[0], faceData.faceTranslation[1], -faceData.faceTranslation[2]);
+      Math::Pose headPose = Math::Pose(headRot, headTrans);
+      Math::Pose headPose2 = Math::Pose(headRot, headTrans);
+      Measurement::Pose meaHeadPose = Measurement::Pose(image.time(), headPose);
+      m_outPort.send(meaHeadPose);
+   }
 }
 
 

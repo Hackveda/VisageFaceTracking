@@ -110,10 +110,8 @@ protected:
 	void newImage(Measurement::ImageMeasurement image);
 
 private:
-   //char * configFile = "C:/Program Files/Visage Technologies/visageSDK/Samples/data/Head Tracker.cfg";
-   //char * configFile = "C:/libraries/JoeSRG/Head Tracker.cfg";
-   //char * configFile = "Head Tracker.cfg"; // current working directory
-   char * configFile = "Facial Features Tracker - High.cfg"; // current working directory
+   char * configFile = "Head Tracker.cfg"; // current working directory
+   //char * configFile = "Facial Features Tracker - High.cfg"; // current working directory
 	int * track_stat;
 	VisageSDK::VisageTracker * m_Tracker = 0;
 
@@ -171,19 +169,24 @@ void VisageFaceTracking::newImage(Measurement::ImageMeasurement image)
    }
    else
    {
-      // the image from direct show is rotated 180 degrees
+      // the direct show image is rotated 180 degrees
       cv::Mat dest;
       cv::rotate(image->Mat(), dest, cv::RotateFlags::ROTATE_180);
+
+      // pass the image to Visage
 	   const char * data = (char *)dest.data;
    	VisageSDK::FaceData faceData;
 	   track_stat = m_Tracker->track(image->width(), image->height(), data, &faceData, visageFormat, VISAGE_FRAMEGRABBER_ORIGIN_TL);
+      
       if (faceData.trackingQuality >= 0.1f)
       {
-         LOG4CPP_INFO(logger, "Head Rotation X Y Z:  " << faceData.faceRotation[0] << " " << faceData.faceRotation[1] << " " << faceData.faceRotation[2]);
-         LOG4CPP_INFO(logger, "Head Translation X Y Z: " << faceData.faceTranslation[0] << " " << faceData.faceTranslation[1] << " " << faceData.faceTranslation[2]);
-         LOG4CPP_INFO(logger, "Tracking Quality: " << faceData.trackingQuality);
+         LOG4CPP_DEBUG(logger, "Head Rotation X Y Z:  " << faceData.faceRotation[0] << " " << faceData.faceRotation[1] << " " << faceData.faceRotation[2]);
+         LOG4CPP_DEBUG(logger, "Head Translation X Y Z: " << faceData.faceTranslation[0] << " " << faceData.faceTranslation[1] << " " << faceData.faceTranslation[2]);
+         LOG4CPP_DEBUG(logger, "Tracking Quality: " << faceData.trackingQuality);
       }
-      Math::Quaternion headRot = Math::Quaternion(-faceData.faceRotation[0], -faceData.faceRotation[1], -faceData.faceRotation[2]);
+     
+     // output head pose
+      Math::Quaternion headRot = Math::Quaternion(-faceData.faceRotation[2], -faceData.faceRotation[1], faceData.faceRotation[0]);
       Math::Vector3d headTrans = Math::Vector3d(faceData.faceTranslation[0], faceData.faceTranslation[1], -faceData.faceTranslation[2]);
       Math::Pose headPose = Math::Pose(headRot, headTrans);
       Math::Pose headPose2 = Math::Pose(headRot, headTrans);

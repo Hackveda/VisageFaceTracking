@@ -38,7 +38,11 @@
 		<DataflowConfiguration>
 			<UbitrackLib class="VisageFaceTracking" />
 
-			
+            <Attribute name="configurationFile" default="C:\Program Files\Visage Technologies\visageSDK\Samples\data\Face Detector.cfg" displayName="Configuration File" xsi:type="PathAttributeDeclarationType">
+                <Description>
+                	<h:p>Required: The main Visage configuration file such as <h:code>Face Detector.cfg</h:code> or <h:code>Facial Features Tracker - High.cfg</h:code>.</h:p>
+               	</Description>
+            </Attribute>
 		</DataflowConfiguration>
 	</Pattern>
 

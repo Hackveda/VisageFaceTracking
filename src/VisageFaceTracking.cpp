@@ -95,13 +95,11 @@ public:
 	/** starts the camera */
 	void start();
 
-	
 	/** stops the camera */
 	void stop();
 
 protected:
 	
-
 	// the ports
 	Dataflow::PushConsumer< Measurement::ImageMeasurement > m_inPort;
 
@@ -110,11 +108,12 @@ protected:
 	void newImage(Measurement::ImageMeasurement image);
 
 private:
-   char * configFile = "Head Tracker.cfg"; // current working directory
-   //char * configFile = "Facial Features Tracker - High.cfg"; // current working directory
+
 	int * track_stat;
+
 	VisageSDK::VisageTracker * m_Tracker = 0;
 
+   // convert from ubitrack enum to visage enum (for image pixel format)
    int switchPixelFormat(Vision::Image::PixelFormat pf);
 };
 
@@ -124,15 +123,19 @@ VisageFaceTracking::VisageFaceTracking( const std::string& sName, boost::shared_
 	, m_outPort( "Output", *this )
 	, m_inPort( "ImageInput", *this, boost::bind(&VisageFaceTracking::newImage, this, _1))
 {
-	const DWORD len = 512;
-	char pBuf[len];
-	int bytes = GetModuleFileName(NULL, pBuf, len);
-	if (bytes != 0)
-		LOG4CPP_INFO(logger, "default-path:  " << pBuf);
-
-	m_Tracker = new VisageSDK::VisageTracker(configFile);
-
+   if (subgraph->m_DataflowAttributes.hasAttribute("configurationFile")) 
+   {
+      std::string configurationFile = subgraph->m_DataflowAttributes.getAttributeString("configurationFile");
+	   m_Tracker = new VisageSDK::VisageTracker(configurationFile.c_str());
+   }
+   else 
+   {
+      std::ostringstream os;
+      os << "Visage Configuration File is required, but was not provided!";
+      UBITRACK_THROW(os.str());
+   }
 }
+
 
 int VisageFaceTracking::switchPixelFormat(Vision::Image::PixelFormat pf)
 {
@@ -158,6 +161,7 @@ int VisageFaceTracking::switchPixelFormat(Vision::Image::PixelFormat pf)
       return -1;
    }
 }
+
 
 void VisageFaceTracking::newImage(Measurement::ImageMeasurement image) 
 {
@@ -215,7 +219,6 @@ void VisageFaceTracking::stop()
 	
 	Component::stop();
 }
-
 
 
 } } // namespace Ubitrack::Driver

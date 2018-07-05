@@ -198,7 +198,6 @@ void VisageFaceTracking::newImage(Measurement::ImageMeasurement image)
       Math::Quaternion headRot = Math::Quaternion(-faceData.faceRotation[2], -faceData.faceRotation[1], faceData.faceRotation[0]);
       Math::Vector3d headTrans = Math::Vector3d(faceData.faceTranslation[0], faceData.faceTranslation[1], -faceData.faceTranslation[2]);
       Math::Pose headPose = Math::Pose(headRot, headTrans);
-      Math::Pose headPose2 = Math::Pose(headRot, headTrans);
       Measurement::Pose meaHeadPose = Measurement::Pose(image.time(), headPose);
       m_outPort.send(meaHeadPose);
    }

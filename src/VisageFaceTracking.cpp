@@ -59,9 +59,9 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 
-namespace VisageSDK {
-   void __declspec(dllimport) initializeLicenseManager(const char *licenseKeyFileFolder);
-}
+//namespace VisageSDK {
+//   void __declspec(dllimport) initializeLicenseManager(const char *licenseKeyFileFolder);
+//}
 
 // get a logger
 static log4cpp::Category& logger( log4cpp::Category::getInstance( "Ubitrack.Vision.VisageFaceTracking" ) );
@@ -138,7 +138,7 @@ VisageFaceTracking::VisageFaceTracking( const std::string& sName, boost::shared_
       os << "Visage Configuration File is required, but was not provided!";
       UBITRACK_THROW(os.str());
    }
-   VisageSDK::initializeLicenseManager("C:\\Program Files\\Visage Technologies");
+   //VisageSDK::initializeLicenseManager("C:\\Program Files\\Visage Technologies");
 }
 
 

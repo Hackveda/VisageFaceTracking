@@ -178,25 +178,31 @@ void VisageFaceTracking::newImage(Measurement::ImageMeasurement image)
    }
    else
    {
-      // the direct show image is rotated 180 degrees
       cv::Mat dest;
-      cv::rotate(image->Mat(), dest, cv::RotateFlags::ROTATE_180);
+	  cv::Mat & img = dest;
+	  if (image->origin() == 0) {
+		  img = image->Mat();
+	  }
+	  else {
+          // the direct show image is flipped vertically
+		  cv::flip(image->Mat(), dest, 0);
+	  }
 
       // pass the image to Visage
-	   const char * data = (char *)dest.data;
-   	VisageSDK::FaceData faceData;
-	   track_stat = m_Tracker->track(image->width(), image->height(), data, &faceData, visageFormat, VISAGE_FRAMEGRABBER_ORIGIN_TL);
+	  const char * data = (char *)dest.data;
+   	  VisageSDK::FaceData faceData;
+	  track_stat = m_Tracker->track(image->width(), image->height(), data, &faceData, visageFormat, VISAGE_FRAMEGRABBER_ORIGIN_TL);
       
       if (faceData.trackingQuality >= 0.1f)
       {
-         LOG4CPP_DEBUG(logger, "Head Rotation X Y Z:  " << faceData.faceRotation[0] << " " << faceData.faceRotation[1] << " " << faceData.faceRotation[2]);
-         LOG4CPP_DEBUG(logger, "Head Translation X Y Z: " << faceData.faceTranslation[0] << " " << faceData.faceTranslation[1] << " " << faceData.faceTranslation[2]);
-         LOG4CPP_DEBUG(logger, "Tracking Quality: " << faceData.trackingQuality);
+		 LOG4CPP_INFO(logger, "Tracking Quality: " << faceData.trackingQuality);
+		 LOG4CPP_INFO(logger, "Head Translation X Y Z: " << faceData.faceTranslation[0] << " " << faceData.faceTranslation[1] << " " << faceData.faceTranslation[2]);
+		 LOG4CPP_INFO(logger, "Head Rotation X Y Z:  " << faceData.faceRotation[0] << " " << faceData.faceRotation[1] << " " << faceData.faceRotation[2]);
       }
      
      // output head pose
-      Math::Quaternion headRot = Math::Quaternion(-faceData.faceRotation[2], -faceData.faceRotation[1], faceData.faceRotation[0]);
-      Math::Vector3d headTrans = Math::Vector3d(faceData.faceTranslation[0], faceData.faceTranslation[1], -faceData.faceTranslation[2]);
+      Math::Quaternion headRot = Math::Quaternion(faceData.faceRotation[2], faceData.faceRotation[1], faceData.faceRotation[0]);
+      Math::Vector3d headTrans = Math::Vector3d(-faceData.faceTranslation[0], faceData.faceTranslation[1], -faceData.faceTranslation[2]);
       Math::Pose headPose = Math::Pose(headRot, headTrans);
       Measurement::Pose meaHeadPose = Measurement::Pose(image.time(), headPose);
       m_outPort.send(meaHeadPose);

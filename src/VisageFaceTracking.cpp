@@ -184,8 +184,9 @@ void VisageFaceTracking::newImage(Measurement::ImageMeasurement image)
 		  img = image->Mat();
 	  }
 	  else {
-          // the direct show image is flipped vertically
+          // the input image is flipped vertically
 		  cv::flip(image->Mat(), dest, 0);
+		  LOG4CPP_WARN(logger, "Input image is flipped. Consider flipping in the driver to improve performance.");
 	  }
 
       // pass the image to Visage

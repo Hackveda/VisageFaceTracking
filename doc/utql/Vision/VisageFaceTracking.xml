@@ -45,6 +45,134 @@
             </Attribute>
 		</DataflowConfiguration>
 	</Pattern>
+	
+	
+	<Pattern name="VisageFaceTrackingError" displayName="Visage Face Tracking Error">
+		<Description>
+			<h:p>
+				
+			</h:p>
+		</Description>
+		<Input>
+			<Node name="Camera" displayName="Camera" />
+			<Node name="ImagePlane" displayName="Image Plane" />
+			
+			<Edge name="ImageInput" source="Camera"	destination="ImagePlane" displayName="Image Input">
+				<Description>
+					
+				</Description>				
+				<Predicate>type=='Image'&amp;&amp;mode=='push'</Predicate>
+			</Edge>
+			<Edge name="Intrinsics" source="Camera"	destination="ImagePlane" displayName="Image Input">
+				<Description>
+					
+				</Description>				
+				<Predicate>type=='3x3Matrix'&amp;&amp;mode=='pull'</Predicate>
+			</Edge>
+		</Input>
+		<Output>
+			<Node name="Head" displayName="Head" />
+			
+			<Edge name="Output" source="Camera" destination="Head" displayName="Head Pose">
+				<Description>
+					
+				</Description>
+				<Attribute name="type" value="6D" xsi:type="EnumAttributeReferenceType"/>
+				<Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
+			</Edge>	
+			<Edge name="OutputError" source="Camera" destination="Head" displayName="Head Pose">
+				<Description>
+					
+				</Description>
+				<Attribute name="type" value="6DError" xsi:type="EnumAttributeReferenceType"/>
+				<Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
+			</Edge>				
+		</Output>
+
+		<DataflowConfiguration>
+			<UbitrackLib class="VisageFaceTracking" />
+
+            <Attribute name="configurationFile" default="C:\Program Files\Visage Technologies\visageSDK\Samples\data\Face Detector.cfg" displayName="Configuration File" xsi:type="PathAttributeDeclarationType">
+                <Description>
+                	<h:p>Required: The main Visage configuration file such as <h:code>Face Detector.cfg</h:code> or <h:code>Facial Features Tracker - High.cfg</h:code>.</h:p>
+               	</Description>
+            </Attribute>
+			
+			<Attribute name="covarScalePos" default="1.0 1.0 1.0" displayName="Position StdDev Scale X, Y, Z" xsi:type="StringAttributeDeclarationType">            
+            </Attribute>
+			<Attribute name="covarScaleRot" default="1.0 1.0 1.0" displayName="Rotation StdDev Scale X, Y, Z" xsi:type="StringAttributeDeclarationType">            
+            </Attribute>
+		</DataflowConfiguration>
+	</Pattern>
+	
+	
+	<Pattern name="VisageFaceIPDEstimation" displayName="Visage Face Tracking IPD estimation">
+		<Description>
+			<h:p>
+				
+			</h:p>
+		</Description>
+		<Input>
+			<Node name="CameraA" displayName="CameraA">
+				 		
+			</Node>
+			<Node name="CameraB" displayName="CameraB">
+				
+			</Node>
+			
+			<Node name="ImagePlaneA" displayName="Image Plane A" />
+			<Node name="ImagePlaneB" displayName="Image Plane B" />
+			
+			<Edge name="ImageA" source="CameraA"	destination="ImagePlaneA" displayName="Image Input A">	
+				<Description><h:p></h:p></Description>			
+				<Predicate>type=='Image'</Predicate>
+			</Edge>
+			
+			<Edge name="ImageB" source="CameraB"	destination="ImagePlaneB" displayName="Image Input A">				
+				<Description><h:p></h:p></Description>			
+				<Predicate>type=='Image'</Predicate>
+			</Edge>
+			<Edge name="AB" source="CameraA"	destination="CameraB" displayName="Registration A to B">				
+				<Description><h:p></h:p></Description>			
+				<Predicate>type=='6D'</Predicate>
+			</Edge>
+		
+		</Input>
+		<Output>
+			<Node name="LeftEye" displayName="LeftEye" />
+			<Node name="RightEye" displayName="RightEye" />
+			
+			<Edge name="IPD" source="RightEye" destination="LeftEye" displayName="IPD">
+				<Description><h:p></h:p></Description>			
+				<Attribute name="type" value="Distance" xsi:type="EnumAttributeReferenceType"/>				
+			</Edge>			
+		</Output>
+		
+		
+		<Constraints>
+        	<TriggerGroup>
+                <Edge edge-ref="ImageA"/>
+                <Edge edge-ref="ImageB"/>
+                <Edge edge-ref="AB"/>
+				<Edge edge-ref="IPD"/>
+            </TriggerGroup>
+        </Constraints>
+
+		<DataflowConfiguration>
+			<UbitrackLib class="VisageFaceIPDEstimation" />
+			<Attribute name="configurationFileA" default="C:\Program Files\Visage Technologies\visageSDK\Samples\data\Face Detector.cfg" displayName="Configuration File" xsi:type="PathAttributeDeclarationType">
+				<Description>
+					<h:p>Required CameraA: The main Visage configuration file such as <h:code>Face Detector.cfg</h:code> or <h:code>Facial Features Tracker - High.cfg</h:code>.</h:p>
+				</Description>
+			</Attribute>	
+			<Attribute name="configurationFileB" default="C:\Program Files\Visage Technologies\visageSDK\Samples\data\Face Detector.cfg" displayName="Configuration File" xsi:type="PathAttributeDeclarationType">
+				<Description>
+					<h:p>Required CameraB: The main Visage configuration file such as <h:code>Face Detector.cfg</h:code> or <h:code>Facial Features Tracker - High.cfg</h:code>.</h:p>
+				</Description>
+			</Attribute>	
+            
+		</DataflowConfiguration>
+	</Pattern>
 
 	
 
@@ -65,28 +193,11 @@
 		<xi:include href="file:GlobalAttrSpec.xml" xpointer="element(/1/2/8)" />
 	</GlobalEdgeAttributeDeclarations>
 
-	<GlobalDataflowAttributeDeclarations>
-		<!-- Unfortunately, the xpointer used in Xinclude is currently restricted to the element scheme and absolute element indices in Xerces (and thus XMLBeans) -->
-		<xi:include href="file:GlobalAttrSpec.xml" xpointer="element(/1/3/1)" />
-		<xi:include href="file:GlobalAttrSpec.xml" xpointer="element(/1/3/2)" />
 
-      <Attribute name="cameraExposureAuto" displayName="Exposure Automatic" default="false" xsi:type="EnumAttributeDeclarationType">
-            <Description><p xmlns="http://www.w3.org/1999/xhtml">Enable automatic camera exposure.</p></Description>
-            <EnumValue name="false" displayName="False"/>
-            <EnumValue name="true" displayName="True"/>
-        </Attribute>
-      <Attribute name="cameraWhitebalanceAuto" displayName="WhiteBalance Automatic" default="false" xsi:type="EnumAttributeDeclarationType">
-            <Description><p xmlns="http://www.w3.org/1999/xhtml">Enable automatic camera white balance.</p></Description>
-            <EnumValue name="false" displayName="False"/>
-            <EnumValue name="true" displayName="True"/>
-        </Attribute>
-      <Attribute name="cameraBacklightComp" displayName="Backlight Compensation" default="false" xsi:type="EnumAttributeDeclarationType">
-            <Description><p xmlns="http://www.w3.org/1999/xhtml">Enable camera backlight compensation.</p></Description>
-            <EnumValue name="false" displayName="False"/>
-            <EnumValue name="true" displayName="True"/>
-        </Attribute>
-
-	</GlobalDataflowAttributeDeclarations>
+    <GlobalDataflowAttributeDeclarations>
+        <xi:include href="../../GlobalAttrSpec.xml" xpointer="element(/1/3/1)"/>
+    </GlobalDataflowAttributeDeclarations>
+ 
 
 </UTQLPatternTemplates>
 

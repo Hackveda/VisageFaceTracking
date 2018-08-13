@@ -267,7 +267,7 @@ namespace Ubitrack { namespace Drivers {
  *
  */
 class VisageFaceTracking
-	: public Dataflow::Component
+	: public Dataflow::TriggerComponent
 {
 public:
 
@@ -283,18 +283,22 @@ public:
 	/** stops the camera */
 	void stop();
 
+	void compute(Measurement::Timestamp t);
+
 protected:
 	
 	// the ports
-	Dataflow::PushConsumer< Measurement::ImageMeasurement > m_inPort;
+	Dataflow::TriggerInPort< Measurement::ImageMeasurement > m_inPort;
 
-	Dataflow::PullConsumer< Measurement::Matrix3x3 > m_inPortIntrinsics;
+	Dataflow::PullConsumer< Measurement::Matrix3x3 > m_inIntrinsics;
 
-	Dataflow::PushSupplier< Measurement::Pose > m_outPort;
+	Dataflow::TriggerOutPort< Measurement::Pose > m_outPort;
 
 	Dataflow::PushSupplier< Measurement::ErrorPose > m_outPortError;
 	
-	void newImage(Measurement::ImageMeasurement image);
+	Dataflow::PushSupplier< Measurement::ImageMeasurement > m_debugPort;
+
+	//void newImage(Measurement::ImageMeasurement image);
 
 private:
 
@@ -315,11 +319,12 @@ private:
 
 
 VisageFaceTracking::VisageFaceTracking( const std::string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph )
-	: Dataflow::Component( sName )	
+	: Dataflow::TriggerComponent(sName, subgraph)
 	, m_outPort( "Output", *this )
-	, m_inPort( "ImageInput", *this, boost::bind(&VisageFaceTracking::newImage, this, _1))
-	, m_inPortIntrinsics("Intrinsics", *this)
 	, m_outPortError("OutputError", *this)
+	, m_inPort( "ImageInput", *this)
+	, m_inIntrinsics("Intrinsics", *this)
+	, m_debugPort("DebugImage", *this)
 #ifdef DO_TIMING
     , m_Timer("VisageFaceTracking", "Ubitrack.Timing")
 #endif
@@ -401,121 +406,157 @@ int VisageFaceTracking::switchPixelFormat(Vision::Image::PixelFormat pf)
 }
 
 
-void VisageFaceTracking::newImage(Measurement::ImageMeasurement image) 
+void VisageFaceTracking::compute(Measurement::Timestamp t)
 {
-   int visageFormat = switchPixelFormat(image->pixelFormat());
-   if (visageFormat == -1)
-   {
-      LOG4CPP_ERROR(logger, "YUV422, YUV411, RAW, DEPTH, UNKNOWN_PIXELFORMAT are not supported by Visage");
-      LOG4CPP_ERROR(logger, "image->pixelFormat() == " << image->pixelFormat());
-   }
-   else
-   {
-      cv::Mat dest;
-	  if (image->origin() == 0) {
-		  dest = image->Mat();
-	  }
-	  else {
-          // the input image is flipped vertically
-		  cv::flip(image->Mat(), dest, 0);
-		  LOG4CPP_WARN(logger, "Input image is flipped. Consider flipping in the driver to improve performance.");
-	  }
+	Measurement::ImageMeasurement image = m_inPort.get();
+	Math::Matrix3x3d intrinsics = *m_inIntrinsics.get(t);
 
-      // pass the image to Visage
-	  const char * data = (char *)dest.data;
-   	  VisageSDK::FaceData faceData;
-	  track_stat = m_Tracker->track(image->width(), image->height(), data, &faceData, visageFormat, VISAGE_FRAMEGRABBER_ORIGIN_TL);
-      
-      if (track_stat && track_stat[0] == TRACK_STAT_OK && faceData.trackingQuality >= 0.6f)
-      {
-		 //LOG4CPP_DEBUG(logger, "Tracking Quality: " << faceData.trackingQuality);
-		 //LOG4CPP_DEBUG(logger, "Head Translation X Y Z: " << faceData.faceTranslation[0] << " " << faceData.faceTranslation[1] << " " << faceData.faceTranslation[2]);
-		 //LOG4CPP_DEBUG(logger, "Head Rotation X Y Z:  " << faceData.faceRotation[0] << " " << faceData.faceRotation[1] << " " << faceData.faceRotation[2]);
-		 
-		 // output head pose
-		 Math::Quaternion headRot = Math::Quaternion(faceData.faceRotation[2], faceData.faceRotation[1], faceData.faceRotation[0]);
-		 Math::Vector3d headTrans = Math::Vector3d(-faceData.faceTranslation[0], faceData.faceTranslation[1], -faceData.faceTranslation[2]);
-		 Math::Pose headPose = Math::Pose(headRot, headTrans);
-		 Measurement::Pose meaHeadPose = Measurement::Pose(image.time(), headPose);
-		 m_outPort.send(meaHeadPose);
-		 
-		 
-		 VisageSDK::FDP* fdp = faceData.featurePoints3DRelative;
-			  
-			   
-		   const int indexFace[8]= { 2, 3,4,5,9,12,14,15};
+	int visageFormat = switchPixelFormat(image->pixelFormat());
+	if (visageFormat == -1)
+	{
+		LOG4CPP_ERROR(logger, "YUV422, YUV411, RAW, DEPTH, UNKNOWN_PIXELFORMAT are not supported by Visage");
+		LOG4CPP_ERROR(logger, "image->pixelFormat() == " << image->pixelFormat());
+	}
+	else
+	{
+		cv::Mat dest;
+		if (image->origin() == 0) {
+			dest = image->Mat();
+		}
+		else {
+			// the input image is flipped vertically
+			cv::flip(image->Mat(), dest, 0);
+			//LOG4CPP_WARN(logger, "Input image is flipped. Consider flipping in the driver to improve performance.");
+		}
 
-		   std::vector<Math::Vector3d> p3D;
+		// pass the image to Visage
+		const char * data = (char *)dest.data;
+		VisageSDK::FaceData faceData;
+		{
+#ifdef DO_TIMING
+			UBITRACK_TIME(m_Timer);
+#endif
+			track_stat = m_Tracker->track(image->width(), image->height(), data, &faceData, visageFormat, VISAGE_FRAMEGRABBER_ORIGIN_TL);
+		}
 
-		   for (int i = 0; i < 8; i++){
-			   int group = indexFace[i];
-			   int groupSize = fdp->groupSize(group);
-			   
-			   for (int j = 0; j < groupSize; j++){
-				   const VisageSDK::FeaturePoint& fp = fdp->getFP(group, j);
-				   //LOG4CPP_INFO(logger, "FeaturePoint debug" << fp.quality);
-				   //LOG4CPP_INFO(logger, "defined debug" << fp.defined);		   
-				   
-				   if (fp.defined  && fp.pos[0] != 0 && fp.pos[1] != 0 && fp.pos[2] != 0 && std::fabs(fp.pos[0]) < 1 && std::fabs(fp.pos[1]) < 1 && std::fabs(fp.pos[2]) < 1){
-					   Math::Vector3d pos = Math::Vector3d(-fp.pos[0], fp.pos[1], fp.pos[2]);
-			
-					   p3D.push_back(pos);
-					   
-				  }
-			   }
-		   }
+		if (track_stat && track_stat[0] == TRACK_STAT_OK && faceData.trackingQuality >= 0.6f)
+		{
+			//LOG4CPP_DEBUG(logger, "Tracking Quality: " << faceData.trackingQuality);
+			//LOG4CPP_DEBUG(logger, "Head Translation X Y Z: " << faceData.faceTranslation[0] << " " << faceData.faceTranslation[1] << " " << faceData.faceTranslation[2]);
+			//LOG4CPP_DEBUG(logger, "Head Rotation X Y Z:  " << faceData.faceRotation[0] << " " << faceData.faceRotation[1] << " " << faceData.faceRotation[2]);
 
-		   Math::Matrix3x3d intrinsics = *m_inPortIntrinsics.get(image.time());
-		   /*
-		   LOG4CPP_INFO(logger, "draw debug");
-		   cv::Mat debugImage = image->Mat();
+			// output head pose
+			Math::Quaternion headRot = Math::Quaternion(faceData.faceRotation[2], faceData.faceRotation[1], faceData.faceRotation[0]);
+			Math::Vector3d headTrans = Math::Vector3d(-faceData.faceTranslation[0], faceData.faceTranslation[1], -faceData.faceTranslation[2]);
+			Math::Pose headPose = Math::Pose(headRot, headTrans);
+			Measurement::Pose meaHeadPose = Measurement::Pose(image.time(), headPose);
+			m_outPort.send(meaHeadPose);
 
-		   Math::Matrix< double, 3, 4 > poseMat(headPose);
-		   Math::Matrix3x4d projectionMatrix = boost::numeric::ublas::prod(intrinsics, poseMat);
+			// convert 2D Visage face features to 2D Ubitrack points
+			VisageSDK::FDP * features2D = faceData.featurePoints2D;
 
-		   for (int i = 0; i < p3D.size(); i++){
-			   Math::Vector4d tmp(p3D[i][0], p3D[i][1], p3D[i][2], 1);
-			   Math::Vector3d projectedPoint = boost::numeric::ublas::prod(projectionMatrix, tmp);
+			// convert 3D Visage face features to 3D Ubitrack points
+			VisageSDK::FDP* features3D = faceData.featurePoints3DRelative;
 
-			   double wRef = projectedPoint[2];
-			   projectedPoint = projectedPoint / wRef;
+			const int featureGroups[8] = { 2,3,4,5,9,12,14,15 };
 
-			   LOG4CPP_INFO(logger, "Point: " << p3D[i] << " : " << projectedPoint);
-			   cv::circle(debugImage, cv::Point2d(projectedPoint[0], projectedPoint[1]), 4, cv::Scalar(255, 0, 0), -1);
-		   }
-		   */
-		   
-		   if (p3D.size() > 5){
-			   Math::Matrix<double, 6, 6> covar = Algorithm::PoseEstimation2D3D::singleCameraPoseError(headPose, p3D, intrinsics, 0.04f * 0.4f);
+			std::vector<Math::Vector2d> points2d;
+			std::vector<Math::Vector3d> points3d;
+
+			for (int i = 0; i < 8; i++) {
+				int group = featureGroups[i];
+				int groupSize = features3D->groupSize(group);
+
+				for (int j = 1; j <= groupSize; j++) {
+					const VisageSDK::FeaturePoint& fp2D = features2D->getFP(group, j);
+					const VisageSDK::FeaturePoint& fp3D = features3D->getFP(group, j);
+					//LOG4CPP_INFO(logger, "FeaturePoint debug" << fp.quality);
+
+					//LOG4CPP_INFO(logger, group << "," << j << " 2D defined: " << fp2D.defined);
+					//LOG4CPP_INFO(logger, group << "," << j << " 2D detected: " << fp2D.detected);
+					if (fp2D.defined && fp2D.detected && fp2D.pos[0] != 0 && fp2D.pos[1] != 0
+						&& std::fabs(fp2D.pos[0]) < 1 && std::fabs(fp2D.pos[1]) < 1)
+					{
+						Math::Vector2d v2D = Math::Vector2d(fp2D.pos[0] * image->width(), fp2D.pos[1] * image->height());
+						points2d.push_back(v2D);
+					}
+
+					//LOG4CPP_INFO(logger, group << "," << j << " 3D defined: " << fp3D.defined);
+					//LOG4CPP_INFO(logger, group << "," << j << " 3D detected: " << fp3D.detected);
+					// fp3D.detected is always == 0, so we use fp2D.detected
+					if (fp3D.defined && fp2D.detected && fp3D.pos[0] != 0 && fp3D.pos[1] != 0 && fp3D.pos[2] != 0
+						&& std::fabs(fp3D.pos[0]) < 1 && std::fabs(fp3D.pos[1]) < 1 && std::fabs(fp3D.pos[2]) < 1)
+					{
+						Math::Vector3d v3D = Math::Vector3d(fp3D.pos[0], fp3D.pos[1], fp3D.pos[2]);
+						points3d.push_back(v3D);
+					}
+				}
+			}
+
+			if (m_debugPort.isConnected()) {
+				// debug drawing of face landmarks
+				boost::shared_ptr<Vision::Image> dImage = image->Clone();
+				cv::Mat debugImage = dImage->Mat();
+				Math::Matrix< double, 3, 4 > poseMat(headPose);
+				Math::Matrix3x4d projectionMatrix = boost::numeric::ublas::prod(intrinsics, poseMat);
+
+				for (int i = 0; i < points3d.size(); i++) {
+					Math::Vector4d tmp(points3d[i][0], points3d[i][1], points3d[i][2], 1);
+					Math::Vector3d projectedPoint = boost::numeric::ublas::prod(projectionMatrix, tmp);
+					Math::Vector2d p2d = points2d[i];
+					double wRef = projectedPoint[2];
+					projectedPoint = projectedPoint / wRef;
+					if (image->origin() == 0) {
+						projectedPoint[1] = debugImage.rows - 1 - projectedPoint[1];
+						p2d[1] = debugImage.rows - 1 - p2d[1];
+					}
+
+					cv::Point2d p1(projectedPoint[0], projectedPoint[1]);
+					cv::Point2d p2(p2d[0], p2d[1]);
+					cv::circle(debugImage, cv::Point2d(p1), 4, cv::Scalar(255, 0, 0), -1);
+					cv::circle(debugImage, cv::Point2d(p2), 3, cv::Scalar(0, 255, 0), -1);
+					cv::line(debugImage, p1, p2, cv::Scalar(0, 0, 255), 1);
+				}
+
+				m_debugPort.send(Measurement::ImageMeasurement(t, dImage));
+			}
 
 
-			   Math::Vector3d headPos = headPose.translation();
-
-			   double quality = faceData.trackingQuality;
-
-			   
-
-			   double scaleFactor[3];
+			if (points3d.size() > 5) {
+				Math::Matrix<double, 6, 6> covar = Algorithm::PoseEstimation2D3D::singleCameraPoseError(headPose, points3d, intrinsics, 0.04f * 0.4f);
 
 
-			   
-			  
+				Math::Vector3d headPos = headPose.translation();
 
-			   for (int j = 0; j < 3; j++){
-				   covar(j, j) = covar(j, j)  * m_covarScalePos[j];
-			   }
+				double quality = faceData.trackingQuality;
 
-		
-			   covar(3, 3) = covar(3, 3) * m_covarScaleRot[0];
-			   covar(4, 4) = covar(4, 4) * m_covarScaleRot[1];
-			   covar(5, 5) = covar(5, 5) * m_covarScaleRot[2];
-			   m_outPortError.send(Measurement::ErrorPose(image.time(), Math::ErrorPose(headPose, covar)));
-		   }
-	  
-      }
-     
-     
-   }
+
+
+				double scaleFactor[3];
+
+
+
+
+
+				for (int j = 0; j < 3; j++) {
+					covar(j, j) = covar(j, j)  * m_covarScalePos[j];
+				}
+
+
+				covar(3, 3) = covar(3, 3) * m_covarScaleRot[0];
+				covar(4, 4) = covar(4, 4) * m_covarScaleRot[1];
+				covar(5, 5) = covar(5, 5) * m_covarScaleRot[2];
+				m_outPortError.send(Measurement::ErrorPose(t, Math::ErrorPose(headPose, covar)));
+			}
+
+		}
+		else if (m_debugPort.isConnected()) {
+			// must still send debug image if face is not detected
+			m_debugPort.send(Measurement::ImageMeasurement(t, image->Clone()));
+		}
+
+
+	}
 }
 
 

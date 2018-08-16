@@ -313,8 +313,12 @@ private:
    double m_covarScaleRot[3];
 #ifdef DO_TIMING
    Ubitrack::Util::BlockTimer m_Timer;
-
 #endif
+
+	// The Visage head pose is very close to the midpoint between the eyes, so we probably don't need this.
+	//Math::Vector3d m_head2Eye;
+	//int m_initCount = 0;
+
 };
 
 
@@ -449,8 +453,6 @@ void VisageFaceTracking::compute(Measurement::Timestamp t)
 			Math::Quaternion headRot = Math::Quaternion(faceData.faceRotation[2], faceData.faceRotation[1], faceData.faceRotation[0]);
 			Math::Vector3d headTrans = Math::Vector3d(-faceData.faceTranslation[0], faceData.faceTranslation[1], -faceData.faceTranslation[2]);
 			Math::Pose headPose = Math::Pose(headRot, headTrans);
-			Measurement::Pose meaHeadPose = Measurement::Pose(image.time(), headPose);
-			m_outPort.send(meaHeadPose);
 
 			// convert 2D Visage face features to 2D Ubitrack points
 			VisageSDK::FDP * features2D = faceData.featurePoints2D;
@@ -530,12 +532,39 @@ void VisageFaceTracking::compute(Measurement::Timestamp t)
 
 				double quality = faceData.trackingQuality;
 
+				// The Visage head pose is very close to the midpoint between the eyes, so we probably don't need this.
+				/*if (m_initCount < 100 && quality > 0.9) {
+					// set head position to average of left+right inner eye landmarks
+
+					const VisageSDK::FeaturePoint& fpRight = features3D->getFP(3, 8);
+					const VisageSDK::FeaturePoint& fpLeft = features3D->getFP(3, 11);
+
+					if (fpRight.defined && std::fabs(fpRight.pos[0]) < 1 && std::fabs(fpRight.pos[1]) < 1 && std::fabs(fpRight.pos[2]) < 1
+						&& fpLeft.defined && std::fabs(fpLeft.pos[0]) < 1 && std::fabs(fpLeft.pos[1]) < 1 && std::fabs(fpLeft.pos[2]) < 1)
+					{
+						Math::Vector3d vRight = Math::Vector3d(fpRight.pos[0], fpRight.pos[1], fpRight.pos[2]);
+						Math::Vector3d vLeft = Math::Vector3d(fpLeft.pos[0], fpLeft.pos[1], fpLeft.pos[2]);
+
+						Math::Vector3d vEye = (vLeft + vRight) / 2.0f;
+						// Visage 3D features are already in the headPose coordinate system
+
+						if (m_initCount == 0) {
+							m_head2Eye = vEye;
+						}
+						else {
+							m_head2Eye = vEye;
+						}
+						m_initCount++;
+						LOG4CPP_INFO(logger, "m_head2Eye : " << m_head2Eye);
+					}
+				}*/
+
+				headPose = Math::Pose(headRot, headTrans);
+				Measurement::Pose meaHeadPose = Measurement::Pose(image.time(), headPose);
+				m_outPort.send(meaHeadPose);
 
 
 				double scaleFactor[3];
-
-
-
 
 
 				for (int j = 0; j < 3; j++) {

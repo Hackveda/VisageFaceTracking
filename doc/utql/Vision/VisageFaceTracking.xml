@@ -20,7 +20,13 @@
 				<Description>
 					
 				</Description>				
-				<Predicate>type=='Image'&amp;&amp;mode=='push'</Predicate>
+				<Predicate>type=='Image'</Predicate>
+			</Edge>
+			<Edge name="Intrinsics" source="Camera"	destination="ImagePlane" displayName="Intrinsics">
+				<Description>
+					
+				</Description>				
+				<Predicate>type=='3x3Matrix'&amp;&amp;mode=='pull'</Predicate>
 			</Edge>
 		</Input>
 		<Output>
@@ -31,10 +37,21 @@
 					
 				</Description>
 				<Attribute name="type" value="6D" xsi:type="EnumAttributeReferenceType"/>
-				<Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
 			</Edge>			
+			<Edge name="DebugImage" source="Camera" destination="ImagePlane" displayName="DebugImage">
+				<Description>
+					
+				</Description>
+				<Attribute name="type" value="Image" xsi:type="EnumAttributeReferenceType"/>								
+				<Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>				
+			</Edge>				
 		</Output>
-
+		<Constraints>
+        	<TriggerGroup>
+                <Edge edge-ref="ImageInput"/>
+				<Edge edge-ref="Output"/>
+            </TriggerGroup>
+        </Constraints>
 		<DataflowConfiguration>
 			<UbitrackLib class="VisageFaceTracking" />
 
@@ -70,6 +87,7 @@
 				<Predicate>type=='3x3Matrix'&amp;&amp;mode=='pull'</Predicate>
 			</Edge>
 		</Input>
+		
 		<Output>
 			<Node name="Head" displayName="Head" />
 			

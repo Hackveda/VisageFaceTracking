@@ -315,6 +315,12 @@ private:
 
    double m_covarScalePos[3];
    double m_covarScaleRot[3];
+
+	// additional covariance
+	double m_addErrorX;
+	double m_addErrorY;
+	double m_addErrorZ;
+
 #ifdef DO_TIMING
    Ubitrack::Util::BlockTimer m_TimerAll;
    Ubitrack::Util::BlockTimer m_TimerTracking;
@@ -338,6 +344,9 @@ VisageFaceTracking::VisageFaceTracking( const std::string& sName, boost::shared_
 	, m_debugPort("DebugImage", *this)
 	, m_referenceHead("RefCam2Head", *this)
 	, m_eventIn("EventIn", *this, boost::bind(&VisageFaceTracking::buttonEvent, this, _1))
+	, m_addErrorX(0.0)
+	, m_addErrorY(0.0)
+	, m_addErrorZ(0.0)
 #ifdef DO_TIMING
    , m_TimerAll("Visage All", "Ubitrack.Timing")
 	, m_TimerTracking("Visage tracking", "Ubitrack.Timing")
@@ -384,7 +393,11 @@ VisageFaceTracking::VisageFaceTracking( const std::string& sName, boost::shared_
 		   inStream >> m_covarScaleRot[2];
 
 	   }
-   }
+
+		subgraph->m_DataflowAttributes.getAttributeData("addErrorX", m_addErrorX);
+		subgraph->m_DataflowAttributes.getAttributeData("addErrorY", m_addErrorY);
+		subgraph->m_DataflowAttributes.getAttributeData("addErrorZ", m_addErrorZ);
+	}
    else 
    {
       std::ostringstream os;

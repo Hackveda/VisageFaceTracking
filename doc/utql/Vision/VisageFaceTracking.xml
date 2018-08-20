@@ -60,6 +60,16 @@
                 	<h:p>Required: The main Visage configuration file such as <h:code>Face Detector.cfg</h:code> or <h:code>Facial Features Tracker - High.cfg</h:code>.</h:p>
                	</Description>
             </Attribute>
+			
+            <Attribute name="addErrorX" displayName="x-axis additional error" default="0" min="0" xsi:type="DoubleAttributeDeclarationType">
+                <Description><h:p>Square root of the x-axis covariance that will be added to error pose.</h:p></Description>
+            </Attribute>
+            <Attribute name="addErrorY" displayName="y-axis additional error" default="0" min="0" xsi:type="DoubleAttributeDeclarationType">
+                <Description><h:p>Square root of the y-axis covariance that will be added to error pose.</h:p></Description>
+            </Attribute>
+            <Attribute name="addErrorY" displayName="z-axis additional error" default="0" min="0" xsi:type="DoubleAttributeDeclarationType">
+                <Description><h:p>Square root of the z-axis covariance that will be added to error pose.</h:p></Description>
+            </Attribute>
 		</DataflowConfiguration>
 	</Pattern>
 	
@@ -119,6 +129,16 @@
 			<Attribute name="covarScalePos" default="1.0 1.0 1.0" displayName="Position StdDev Scale X, Y, Z" xsi:type="StringAttributeDeclarationType">            
             </Attribute>
 			<Attribute name="covarScaleRot" default="1.0 1.0 1.0" displayName="Rotation StdDev Scale X, Y, Z" xsi:type="StringAttributeDeclarationType">            
+            </Attribute>
+
+            <Attribute name="addErrorX" displayName="x-axis additional error" default="0" min="0" xsi:type="DoubleAttributeDeclarationType">
+                <Description><h:p>Square root of the x-axis covariance that will be added to error pose.</h:p></Description>
+            </Attribute>
+            <Attribute name="addErrorY" displayName="y-axis additional error" default="0" min="0" xsi:type="DoubleAttributeDeclarationType">
+                <Description><h:p>Square root of the y-axis covariance that will be added to error pose.</h:p></Description>
+            </Attribute>
+            <Attribute name="addErrorY" displayName="z-axis additional error" default="0" min="0" xsi:type="DoubleAttributeDeclarationType">
+                <Description><h:p>Square root of the z-axis covariance that will be added to error pose.</h:p></Description>
             </Attribute>
 		</DataflowConfiguration>
 	</Pattern>
@@ -269,6 +289,16 @@
                 <Description>
                 	<h:p>Required: The main Visage configuration file such as <h:code>Face Detector.cfg</h:code> or <h:code>Facial Features Tracker - High.cfg</h:code>.</h:p>
                	</Description>
+            </Attribute>
+
+            <Attribute name="addErrorX" displayName="x-axis additional error" default="0" min="0" xsi:type="DoubleAttributeDeclarationType">
+                <Description><h:p>Square root of the x-axis covariance that will be added to error pose.</h:p></Description>
+            </Attribute>
+            <Attribute name="addErrorY" displayName="y-axis additional error" default="0" min="0" xsi:type="DoubleAttributeDeclarationType">
+                <Description><h:p>Square root of the y-axis covariance that will be added to error pose.</h:p></Description>
+            </Attribute>
+            <Attribute name="addErrorY" displayName="z-axis additional error" default="0" min="0" xsi:type="DoubleAttributeDeclarationType">
+                <Description><h:p>Square root of the z-axis covariance that will be added to error pose.</h:p></Description>
             </Attribute>
 		</DataflowConfiguration>
 	</Pattern>

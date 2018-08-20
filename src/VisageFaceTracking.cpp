@@ -298,7 +298,11 @@ protected:
 	
 	Dataflow::PushSupplier< Measurement::ImageMeasurement > m_debugPort;
 
-	//void newImage(Measurement::ImageMeasurement image);
+	Dataflow::PushConsumer< Measurement::Button> m_eventIn;
+
+	Dataflow::PullConsumer<Measurement::Pose> m_referenceHead;
+
+	void buttonEvent(Measurement::Button e);
 
 private:
 
@@ -320,6 +324,8 @@ private:
 	//Math::Vector3d m_head2Eye;
 	//int m_initCount = 0;
 
+	void resetTracker(Measurement::Timestamp t);
+
 };
 
 
@@ -330,6 +336,8 @@ VisageFaceTracking::VisageFaceTracking( const std::string& sName, boost::shared_
 	, m_inPort( "ImageInput", *this)
 	, m_inIntrinsics("Intrinsics", *this)
 	, m_debugPort("DebugImage", *this)
+	, m_referenceHead("RefCam2Head", *this)
+	, m_eventIn("EventIn", *this, boost::bind(&VisageFaceTracking::buttonEvent, this, _1))
 #ifdef DO_TIMING
    , m_TimerAll("Visage All", "Ubitrack.Timing")
 	, m_TimerTracking("Visage tracking", "Ubitrack.Timing")
@@ -635,6 +643,30 @@ void VisageFaceTracking::compute(Measurement::Timestamp t)
 		}
 
 
+	}
+}
+
+void VisageFaceTracking::buttonEvent(Measurement::Button e) {
+	if (e->m_value == 'r') {
+		LOG4CPP_INFO(logger, "reset by user");
+		resetTracker(e.time());
+	}
+	else if (e->m_value == 'h') {
+		LOG4CPP_INFO(logger, "hard reset by user");
+		m_Tracker->reset();
+	}
+}
+
+void VisageFaceTracking::resetTracker(Measurement::Timestamp t) {
+	if (m_referenceHead.isConnected()) {
+		// visage does not support a reset function with image coordinate parameters
+		m_Tracker->reset();
+	}
+	else
+	{
+		// reset with no addition info
+		//LOG4CPP_INFO(logger, "hard reset, no info");
+		m_Tracker->reset();
 	}
 }
 

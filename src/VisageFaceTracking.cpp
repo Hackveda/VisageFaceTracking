@@ -331,7 +331,7 @@ VisageFaceTracking::VisageFaceTracking( const std::string& sName, boost::shared_
 	, m_inIntrinsics("Intrinsics", *this)
 	, m_debugPort("DebugImage", *this)
 #ifdef DO_TIMING
-    , m_TimerAll("Visage All", "Ubitrack.Timing")
+   , m_TimerAll("Visage All", "Ubitrack.Timing")
 	, m_TimerTracking("Visage tracking", "Ubitrack.Timing")
 #endif
 {
@@ -414,8 +414,11 @@ int VisageFaceTracking::switchPixelFormat(Vision::Image::PixelFormat pf)
 
 void VisageFaceTracking::compute(Measurement::Timestamp t)
 {
-<<<<<<< HEAD
+	Measurement::ImageMeasurement image = m_inPort.get();
+	Math::Matrix3x3d intrinsics = *m_inIntrinsics.get(t);
+
 	UBITRACK_TIME(m_TimerAll);
+
    int visageFormat = switchPixelFormat(image->pixelFormat());
    if (visageFormat == -1)
    {
@@ -488,8 +491,8 @@ void VisageFaceTracking::compute(Measurement::Timestamp t)
 			   }
 		   }
 
-		   Math::Matrix3x3d intrinsics = *m_inPortIntrinsics.get(image.time());
-	
+		   Math::Matrix3x3d intrinsics = *m_inIntrinsics.get(image.time());
+		}
 		if (track_stat && track_stat[0] == TRACK_STAT_OK && faceData.trackingQuality >= 0.6f)
 		{
 			//LOG4CPP_DEBUG(logger, "Tracking Quality: " << faceData.trackingQuality);

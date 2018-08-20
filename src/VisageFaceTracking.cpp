@@ -308,7 +308,8 @@ private:
    double m_covarScalePos[3];
    double m_covarScaleRot[3];
 #ifdef DO_TIMING
-   Ubitrack::Util::BlockTimer m_Timer;
+   Ubitrack::Util::BlockTimer m_TimerAll;
+   Ubitrack::Util::BlockTimer m_TimerTracking;
 
 #endif
 };
@@ -321,7 +322,8 @@ VisageFaceTracking::VisageFaceTracking( const std::string& sName, boost::shared_
 	, m_inPortIntrinsics("Intrinsics", *this)
 	, m_outPortError("OutputError", *this)
 #ifdef DO_TIMING
-    , m_Timer("VisageFaceTracking", "Ubitrack.Timing")
+    , m_TimerAll("Visage All", "Ubitrack.Timing")
+	, m_TimerTracking("Visage tracking", "Ubitrack.Timing")
 #endif
 {
    if (subgraph->m_DataflowAttributes.hasAttribute("configurationFile")) 
@@ -403,6 +405,7 @@ int VisageFaceTracking::switchPixelFormat(Vision::Image::PixelFormat pf)
 
 void VisageFaceTracking::newImage(Measurement::ImageMeasurement image) 
 {
+	UBITRACK_TIME(m_TimerAll);
    int visageFormat = switchPixelFormat(image->pixelFormat());
    if (visageFormat == -1)
    {
@@ -412,6 +415,7 @@ void VisageFaceTracking::newImage(Measurement::ImageMeasurement image)
    else
    {
       cv::Mat dest;
+	  int origin = image->origin();
 	  if (image->origin() == 0) {
 		  dest = image->Mat();
 	  }
@@ -424,7 +428,11 @@ void VisageFaceTracking::newImage(Measurement::ImageMeasurement image)
       // pass the image to Visage
 	  const char * data = (char *)dest.data;
    	  VisageSDK::FaceData faceData;
-	  track_stat = m_Tracker->track(image->width(), image->height(), data, &faceData, visageFormat, VISAGE_FRAMEGRABBER_ORIGIN_TL);
+	  {
+		  UBITRACK_TIME(m_TimerTracking);
+		  track_stat = m_Tracker->track(image->width(), image->height(), data, &faceData, visageFormat, VISAGE_FRAMEGRABBER_ORIGIN_TL);		  
+	  }
+	  
       
       if (track_stat && track_stat[0] == TRACK_STAT_OK && faceData.trackingQuality >= 0.6f)
       {
@@ -434,6 +442,8 @@ void VisageFaceTracking::newImage(Measurement::ImageMeasurement image)
 		 
 		 // output head pose
 		 Math::Quaternion headRot = Math::Quaternion(faceData.faceRotation[2], faceData.faceRotation[1], faceData.faceRotation[0]);
+		 Math::Quaternion headRotOrient = Math::Quaternion(0,1,0,0);
+		 headRot = headRot * headRotOrient;
 		 Math::Vector3d headTrans = Math::Vector3d(-faceData.faceTranslation[0], faceData.faceTranslation[1], -faceData.faceTranslation[2]);
 		 Math::Pose headPose = Math::Pose(headRot, headTrans);
 		 Measurement::Pose meaHeadPose = Measurement::Pose(image.time(), headPose);
@@ -446,7 +456,10 @@ void VisageFaceTracking::newImage(Measurement::ImageMeasurement image)
 		   const int indexFace[8]= { 2, 3,4,5,9,12,14,15};
 
 		   std::vector<Math::Vector3d> p3D;
-
+		   double originCorrection = -1.0;
+		   if (origin) {
+			   originCorrection = 1.0;
+		   }
 		   for (int i = 0; i < 8; i++){
 			   int group = indexFace[i];
 			   int groupSize = fdp->groupSize(group);
@@ -457,8 +470,8 @@ void VisageFaceTracking::newImage(Measurement::ImageMeasurement image)
 				   //LOG4CPP_INFO(logger, "defined debug" << fp.defined);		   
 				   
 				   if (fp.defined  && fp.pos[0] != 0 && fp.pos[1] != 0 && fp.pos[2] != 0 && std::fabs(fp.pos[0]) < 1 && std::fabs(fp.pos[1]) < 1 && std::fabs(fp.pos[2]) < 1){
-					   Math::Vector3d pos = Math::Vector3d(-fp.pos[0], fp.pos[1], fp.pos[2]);
-			
+					   Math::Vector3d pos = Math::Vector3d(fp.pos[0], fp.pos[1], fp.pos[2]);
+					   pos = headRotOrient * pos;
 					   p3D.push_back(pos);
 					   
 				  }
@@ -466,8 +479,8 @@ void VisageFaceTracking::newImage(Measurement::ImageMeasurement image)
 		   }
 
 		   Math::Matrix3x3d intrinsics = *m_inPortIntrinsics.get(image.time());
-		   /*
-		   LOG4CPP_INFO(logger, "draw debug");
+		   
+		   /*LOG4CPP_INFO(logger, "draw debug");
 		   cv::Mat debugImage = image->Mat();
 
 		   Math::Matrix< double, 3, 4 > poseMat(headPose);
@@ -481,9 +494,15 @@ void VisageFaceTracking::newImage(Measurement::ImageMeasurement image)
 			   projectedPoint = projectedPoint / wRef;
 
 			   LOG4CPP_INFO(logger, "Point: " << p3D[i] << " : " << projectedPoint);
-			   cv::circle(debugImage, cv::Point2d(projectedPoint[0], projectedPoint[1]), 4, cv::Scalar(255, 0, 0), -1);
-		   }
-		   */
+			   if (origin) {
+				   cv::circle(debugImage, cv::Point2d(projectedPoint[0],projectedPoint[1]), 4, cv::Scalar(255, 0, 0), -1);
+			   }
+			   else {
+				   cv::circle(debugImage, cv::Point2d(projectedPoint[0], debugImage.rows - 1 - projectedPoint[1]), 4, cv::Scalar(255, 0, 0), -1);
+			   }
+			   
+		   }*/
+		   
 		   
 		   if (p3D.size() > 5){
 			   Math::Matrix<double, 6, 6> covar = Algorithm::PoseEstimation2D3D::singleCameraPoseError(headPose, p3D, intrinsics, 0.04f * 0.4f);

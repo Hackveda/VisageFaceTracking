@@ -470,21 +470,21 @@ void VisageFaceTracking::compute(Measurement::Timestamp t)
       
       if (track_stat && track_stat[0] == TRACK_STAT_OK && faceData.trackingQuality >= 0.6f)
       {
-		 //LOG4CPP_DEBUG(logger, "Tracking Quality: " << faceData.trackingQuality);
-		 //LOG4CPP_DEBUG(logger, "Head Translation X Y Z: " << faceData.faceTranslation[0] << " " << faceData.faceTranslation[1] << " " << faceData.faceTranslation[2]);
-		 //LOG4CPP_DEBUG(logger, "Head Rotation X Y Z:  " << faceData.faceRotation[0] << " " << faceData.faceRotation[1] << " " << faceData.faceRotation[2]);
+			//LOG4CPP_DEBUG(logger, "Tracking Quality: " << faceData.trackingQuality);
+			//LOG4CPP_DEBUG(logger, "Head Translation X Y Z: " << faceData.faceTranslation[0] << " " << faceData.faceTranslation[1] << " " << faceData.faceTranslation[2]);
+			//LOG4CPP_DEBUG(logger, "Head Rotation X Y Z:  " << faceData.faceRotation[0] << " " << faceData.faceRotation[1] << " " << faceData.faceRotation[2]);
 		 
-		 // output head pose
-		 Math::Quaternion headRot = Math::Quaternion(faceData.faceRotation[2], faceData.faceRotation[1], faceData.faceRotation[0]);
-		 Math::Quaternion headRotOrient = Math::Quaternion(0,1,0,0);
-		 headRot = headRot * headRotOrient;
-		 Math::Vector3d headTrans = Math::Vector3d(-faceData.faceTranslation[0], faceData.faceTranslation[1], -faceData.faceTranslation[2]);
-		 Math::Pose headPose = Math::Pose(headRot, headTrans);
-		 Measurement::Pose meaHeadPose = Measurement::Pose(image.time(), headPose);
-		 m_outPort.send(meaHeadPose);
+			// output head pose
+			Math::Quaternion headRot = Math::Quaternion(faceData.faceRotation[2], faceData.faceRotation[1], faceData.faceRotation[0]);
+			Math::Quaternion headRotOrient = Math::Quaternion(0,1,0,0);
+			headRot = headRot * headRotOrient;
+			Math::Vector3d headTrans = Math::Vector3d(-faceData.faceTranslation[0], faceData.faceTranslation[1], -faceData.faceTranslation[2]);
+			Math::Pose headPose = Math::Pose(headRot, headTrans);
+			Measurement::Pose meaHeadPose = Measurement::Pose(image.time(), headPose);
+			m_outPort.send(meaHeadPose);
 		 
 		 
-		 VisageSDK::FDP* fdp = faceData.featurePoints3DRelative;
+			VisageSDK::FDP* fdp = faceData.featurePoints3DRelative;
 			  
 			   
 		   const int indexFace[8]= { 2, 3,4,5,9,12,14,15};
@@ -511,7 +511,6 @@ void VisageFaceTracking::compute(Measurement::Timestamp t)
 				  }
 			   }
 		   }
-
 		   Math::Matrix3x3d intrinsics = *m_inIntrinsics.get(image.time());
 		}
 		if (track_stat && track_stat[0] == TRACK_STAT_OK && faceData.trackingQuality >= 0.6f)
@@ -547,13 +546,6 @@ void VisageFaceTracking::compute(Measurement::Timestamp t)
 
 					//LOG4CPP_INFO(logger, group << "," << j << " 2D defined: " << fp2D.defined);
 					//LOG4CPP_INFO(logger, group << "," << j << " 2D detected: " << fp2D.detected);
-					if (fp2D.defined && fp2D.detected && fp2D.pos[0] != 0 && fp2D.pos[1] != 0
-						&& std::fabs(fp2D.pos[0]) < 1 && std::fabs(fp2D.pos[1]) < 1)
-					{
-						Math::Vector2d v2D = Math::Vector2d(fp2D.pos[0] * image->width(), fp2D.pos[1] * image->height());
-						points2d.push_back(v2D);
-					}
-
 					//LOG4CPP_INFO(logger, group << "," << j << " 3D defined: " << fp3D.defined);
 					//LOG4CPP_INFO(logger, group << "," << j << " 3D detected: " << fp3D.detected);
 					// fp3D.detected is always == 0, so we use fp2D.detected
@@ -562,6 +554,8 @@ void VisageFaceTracking::compute(Measurement::Timestamp t)
 					{
 						Math::Vector3d v3D = Math::Vector3d(fp3D.pos[0], fp3D.pos[1], fp3D.pos[2]);
 						points3d.push_back(v3D);
+						Math::Vector2d v2D = Math::Vector2d(fp2D.pos[0] * image->width(), fp2D.pos[1] * image->height());
+						points2d.push_back(v2D);
 					}
 				}
 			}
@@ -630,17 +624,15 @@ void VisageFaceTracking::compute(Measurement::Timestamp t)
 					}
 				}*/
 
-				headPose = Math::Pose(headRot, headTrans);
-				Measurement::Pose meaHeadPose = Measurement::Pose(image.time(), headPose);
-				m_outPort.send(meaHeadPose);
-
-
 				double scaleFactor[3];
 
 
 				for (int j = 0; j < 3; j++) {
 					covar(j, j) = covar(j, j)  * m_covarScalePos[j];
 				}
+				covar(0, 0) += m_addErrorX * m_addErrorX;
+				covar(1, 1) += m_addErrorY * m_addErrorY;
+				covar(2, 2) += m_addErrorZ * m_addErrorZ;
 
 
 				covar(3, 3) = covar(3, 3) * m_covarScaleRot[0];
